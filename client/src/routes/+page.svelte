@@ -12,10 +12,32 @@
 
     // For more information on runes and reactivity, see: https://svelte.dev/docs/svelte/what-are-runes
     let meals: Meal[] = $state([]);
+    let loading = $state(true);
+    let error = $state<string | null>(null);
+
+
+    async function fetchMeals() {
+        loading = true;
+        error = null;
+        try {
+            const res = await fetch(`${baseUrl}/mensa-garching/today`);
+            if (res.status === 204) {
+                meals = [];
+            } else if (res.ok) {
+                meals = await res.json();
+            } else {
+                error = `Request failed with status ${res.status}`;
+            }
+        } catch (e) {
+            error = e instanceof Error ? e.message : "Failed to load menu";
+        } finally {
+            loading = false;
+        }
+    }
 
     // Fetch data once on component mount
     onMount(async () => {
-       // TODO Fetch meals from the API running on the baseUrl
+        await fetchMeals();
     });
 </script>
 
@@ -25,17 +47,23 @@
         <p>Today's menu offerings</p>
     </header>
 
-    {#if meals.length === 0}
+    {#if loading}
         <div class="no-results">
             <p>Loading menu items...</p>
         </div>
-    {:else}
-       <!-- TODO add food-grid here -->
-    {/if}
-
-    {#if meals.length === 0 && meals.length > 0}
+    {:else if error}
         <div class="no-results">
-            No menu items match your filters. Try changing your selection.
+            <p>Could not load the menu: {error}</p>
+        </div>
+    {:else if meals.length === 0}
+        <div class="no-results">
+            <p>No menu available today.</p>
+        </div>
+    {:else}
+       <div class="food-grid">
+            {#each meals as meal}
+                <FoodCard {meal}/>
+            {/each}
         </div>
     {/if}
 </main>
